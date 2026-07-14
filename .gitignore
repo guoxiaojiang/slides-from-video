@@ -1,0 +1,22 @@
+.DS_Store
+*.swp
+*.swo
+
+# 视频缓存/中间产物
+*.mp4
+*.webm
+*.mkv
+*.jpg
+*.jpeg
+*.png
+!docs/**/*.png
+!docs/**/*.jpg
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# 输出
+*.pdf
+!examples/*.pdf
