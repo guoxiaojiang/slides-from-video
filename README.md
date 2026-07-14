@@ -1,5 +1,7 @@
 # slides-from-video
 
+English | [中文](./README.zh-CN.md)
+
 Extract slide/presentation content from a lecture or conference video into a clean PDF.
 
 Give it a YouTube URL (or local video file), tell it where the slides live in the frame, and it produces a de-duplicated PDF of the deck. Designed for talks where slides only occupy part of the frame — with speaker cams, sponsor logos, or crop bars around them.
