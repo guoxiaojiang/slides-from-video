@@ -29,6 +29,20 @@ set -euo pipefail
 CACHE_DIR="$HOME/.cache/slides_extract"
 DEFAULT_OUT_DIR="$HOME/Downloads/slides_extract"
 
+# 供 EXIT trap 使用, 由 extract 子命令填充
+WORKDIR=""
+KEEP_CACHE=0
+IS_URL=0
+
+_cleanup() {
+  [[ -n "$WORKDIR" && -d "$WORKDIR" ]] && rm -rf "$WORKDIR"
+  if [[ "$KEEP_CACHE" -eq 0 && "$IS_URL" -eq 1 && -d "$CACHE_DIR" ]]; then
+    rm -rf "$CACHE_DIR"
+    echo "已清理视频缓存: $CACHE_DIR" >&2
+  fi
+}
+
+
 # ---------- 依赖检查 ----------
 check_deps() {
   local missing=0
@@ -154,11 +168,14 @@ cmd_extract() {
   fi
   echo "视频文件: $video" >&2
 
-  # 工作目录
-  local workdir; workdir=$(mktemp -d -t slides.XXXXXX)
-  trap 'rm -rf "$workdir"; [[ $keep_cache -eq 0 && "$input" =~ ^https?:// ]] && rm -rf "$CACHE_DIR" && echo "已清理视频缓存: $CACHE_DIR" >&2' EXIT
+  # 工作目录 (用全局变量以便 EXIT trap 里能访问)
+  WORKDIR=$(mktemp -d -t slides.XXXXXX)
+  KEEP_CACHE=$keep_cache
+  IS_URL=0
+  [[ "$input" =~ ^https?:// ]] && IS_URL=1
+  trap '_cleanup' EXIT
 
-  mkdir -p "$workdir/frames"
+  mkdir -p "$WORKDIR/frames"
 
   # 抽帧
   local crop_filter=""
@@ -168,18 +185,18 @@ cmd_extract() {
     -i "$video" \
     -vf "${crop_filter}fps=1/${sample_interval}" \
     -vsync vfr -q:v 2 \
-    "$workdir/frames/slide_%05d.jpg"
+    "$WORKDIR/frames/slide_%05d.jpg"
 
-  local frame_count; frame_count=$(ls "$workdir/frames" | wc -l | tr -d ' ')
+  local frame_count; frame_count=$(ls "$WORKDIR/frames" | wc -l | tr -d ' ')
   echo "抽到 $frame_count 张候选帧" >&2
 
   # 幻灯片识别 + 去重
-  local keep_dir="$workdir/keep"
+  local keep_dir="$WORKDIR/keep"
   mkdir -p "$keep_dir"
 
   echo "==> OCR 页码 + phash 去重..." >&2
   local kept_count
-  kept_count=$(FRAMES_DIR="$workdir/frames" KEEP_DIR="$keep_dir" \
+  kept_count=$(FRAMES_DIR="$WORKDIR/frames" KEEP_DIR="$keep_dir" \
     MIN_BRIGHT="$min_bright" MAX_STDDEV="$max_stddev" DUP_TH="$dup_th" \
     python3 - <<'PY' 2>&1 | tail -1
 import os, re, shutil, glob, subprocess, tempfile, sys
